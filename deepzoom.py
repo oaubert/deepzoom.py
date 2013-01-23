@@ -351,7 +351,7 @@ class DeepZoomCollectionItem(object):
 class ImageCreator(object):
     """Creates Deep Zoom images."""
     def __init__(self, tile_size=254, tile_overlap=1, tile_format='jpg',
-                 image_quality=0.8, resize_filter=None, copy_metadata=False):
+                 image_quality=0.8, resize_filter=None, square=False, copy_metadata=False):
         self.tile_size = int(tile_size)
         self.tile_format = tile_format
         self.tile_overlap = _clamp(int(tile_overlap), 0, 10)
@@ -359,6 +359,7 @@ class ImageCreator(object):
         if not tile_format in IMAGE_FORMATS:
             self.tile_format = DEFAULT_IMAGE_FORMAT
         self.resize_filter = resize_filter
+        self.square = square
         self.copy_metadata = copy_metadata
 
     def get_image(self, level):
@@ -383,6 +384,12 @@ class ImageCreator(object):
         """Creates Deep Zoom image from source file and saves it to destination."""
         self.image = PIL.Image.open(safe_open(source))
         width, height = self.image.size
+        if self.square:
+            size = max((width, height))
+            i = PIL.Image.new('RGBA', (size, size), (1, 1, 1, 1))
+            i.paste(self.image, ((size - width) / 2, (size - height) / 2))
+            self.image = i
+            width, height = size, size
         self.descriptor = DeepZoomImageDescriptor(width=width,
                                                   height=height,
                                                   tile_size=self.tile_size,
@@ -498,7 +505,7 @@ def main():
                       default=0.8, help='Quality of the image output (0-1). Default: 0.8')
     parser.add_option('-r', '--resize_filter', dest='resize_filter', default=DEFAULT_RESIZE_FILTER,
                       help='Type of filter for resizing (bicubic, nearest, bilinear, antialias (best). Default: antialias')
-
+    parser.add_option('-a', '--square', dest="square", action='store_true', default=False, help='Convert the image to a square size')
     (options, args) = parser.parse_args()
 
     if not args:
@@ -518,7 +525,8 @@ def main():
     creator = ImageCreator(tile_size=options.tile_size,
                            tile_format=options.tile_format,
                            image_quality=options.image_quality,
-                           resize_filter=options.resize_filter)
+                           resize_filter=options.resize_filter,
+                           square=options.square)
     creator.create(source, options.destination)
 
 if __name__ == '__main__':
